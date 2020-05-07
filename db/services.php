@@ -27,7 +27,7 @@ $functions = array(
                 'classname'   => 'local_feedbackhelper_external',
                 'methodname'  => 'delete',
                 'classpath'   => 'local/feedbackhelper/externallib.php',
-                'description' => 'To pull the activity logs',
+                'description' => 'To delete a user feedback',
                 'type'        => 'read',
         )
 );
