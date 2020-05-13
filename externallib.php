@@ -49,9 +49,6 @@ class local_feedbackhelper_external extends external_api
      */
     public static function delete($criteria)
     {
-        global $USER;
-        global $DB;
-
         $response = [
             'status' => 200
         ];
@@ -59,24 +56,41 @@ class local_feedbackhelper_external extends external_api
         try {
             $criteria = json_decode($criteria, true);
 
-            if (!isset($criteria["user_id"])) {
-                return json_encode([
-                    'status' => 422,
+            $i = 0;
+            foreach ($criteria as $itemCriteria) {
+                $response['operations'][$i] = self::deleteRecord($itemCriteria);
+                $i++;
+            }
+        } catch (\Throwable $e) {
+            $response['status'] = 500;
+            $response['message'] = $e->getMessage();
+        }
+
+        return json_encode($response);
+    }
+
+    public static function deleteRecord($item)
+    {
+        global $DB;
+        $response = [];
+
+        try {
+            if (!isset($item["user_id"])) {
+                return [
                     'message' => "'user_id' is required.",
-                    'input' => $criteria
-                ]);
+                    'input' => $item
+                ];
             }
 
-            if (!isset($criteria["feedback_id"])) {
-                return json_encode([
-                    'status' => 422,
+            if (!isset($item["feedback_id"])) {
+                return [
                     'message' => "'feedback_id' is required.",
-                    'input' => $criteria
-                ]);
+                    'input' => $item
+                ];
             }
 
-            $userId = $criteria['user_id'];
-            $feedbackId = $criteria['feedback_id'];
+            $userId = $item['user_id'];
+            $feedbackId = $item['feedback_id'];
             $deleteFrom = 'feedback_completed';
 
             $queryConditions = [
@@ -84,11 +98,13 @@ class local_feedbackhelper_external extends external_api
                 "userid" => $userId
             ];
 
+            $response['delete_where'] = $queryConditions;
+
             $records = $DB->get_records($deleteFrom, $queryConditions);
 
             $i = 0;
-            foreach($records as $key => $value) {
-                $i ++;
+            foreach ($records as $key => $value) {
+                $i++;
                 $response['deleting_records'][$key] = $value;
             }
 
@@ -97,10 +113,9 @@ class local_feedbackhelper_external extends external_api
             if ($i == 0) {
                 $response['message'] = "No matching records found.";
             } else {
-                $response['message'] = "Successfully deleted records.";
+                $response['message'] = "Successfully deleted record(s).";
             }
         } catch (\Throwable $e) {
-            $response['status'] = 500;
             $response['message'] = $e->getMessage();
         }
 
