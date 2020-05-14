@@ -49,6 +49,8 @@ class local_feedbackhelper_external extends external_api
      */
     public static function delete($criteria)
     {
+        global $DB;
+
         $response = [
             'status' => 200
         ];
@@ -56,10 +58,42 @@ class local_feedbackhelper_external extends external_api
         try {
             $criteria = json_decode($criteria, true);
 
+            if (!isset($criteria["user_ids"])) {
+                return json_encode([
+                    'message' => "'user_ids' is required.",
+                    'input' => $criteria
+                ]);
+            }
+
+            if (!isset($criteria["feedback_ids"])) {
+                return json_encode([
+                    'message' => "'feedback_ids' is required.",
+                    'input' => $criteria
+                ]);
+            }
+
+            $userIds = implode(', ', $criteria['user_ids']);
+            $feedbackIds = implode(', ', $criteria['feedback_ids']);
+            $deleteFrom = 'feedback_completed';
+
+            $selectStatement = "feedback in ({$feedbackIds}) and userid in ({$userIds})";
+
+            $response['delete_where'] = $selectStatement;
+
+            $records = $DB->get_records_select($deleteFrom, $selectStatement);
+
             $i = 0;
-            foreach ($criteria as $itemCriteria) {
-                $response['operations'][$i] = self::deleteRecord($itemCriteria);
+            foreach ($records as $key => $value) {
                 $i++;
+                $response['deleting_records'][$key] = $value;
+            }
+
+             $DB->delete_records_select($deleteFrom, $selectStatement);
+
+            if ($i == 0) {
+                $response['message'] = "No matching records found.";
+            } else {
+                $response['message'] = "Successfully deleted record(s).";
             }
         } catch (\Throwable $e) {
             $response['status'] = 500;
@@ -69,58 +103,6 @@ class local_feedbackhelper_external extends external_api
         return json_encode($response);
     }
 
-    public static function deleteRecord($item)
-    {
-        global $DB;
-        $response = [];
-
-        try {
-            if (!isset($item["user_id"])) {
-                return [
-                    'message' => "'user_id' is required.",
-                    'input' => $item
-                ];
-            }
-
-            if (!isset($item["feedback_id"])) {
-                return [
-                    'message' => "'feedback_id' is required.",
-                    'input' => $item
-                ];
-            }
-
-            $userId = $item['user_id'];
-            $feedbackId = $item['feedback_id'];
-            $deleteFrom = 'feedback_completed';
-
-            $queryConditions = [
-                "feedback" => $feedbackId,
-                "userid" => $userId
-            ];
-
-            $response['delete_where'] = $queryConditions;
-
-            $records = $DB->get_records($deleteFrom, $queryConditions);
-
-            $i = 0;
-            foreach ($records as $key => $value) {
-                $i++;
-                $response['deleting_records'][$key] = $value;
-            }
-
-            $DB->delete_records($deleteFrom, $queryConditions);
-
-            if ($i == 0) {
-                $response['message'] = "No matching records found.";
-            } else {
-                $response['message'] = "Successfully deleted record(s).";
-            }
-        } catch (\Throwable $e) {
-            $response['message'] = $e->getMessage();
-        }
-
-        return json_encode($response);
-    }
 
     /**
      * Returns description of method result value
